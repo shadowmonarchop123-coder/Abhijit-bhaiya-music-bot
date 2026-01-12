@@ -3,7 +3,7 @@ from pyrogram import filters
 from pyrogram.types import Message
 
 from core.client import app
-from core.call import call_py
+# Yahan se call_py ka import hata diya hai loop break karne ke liye
 from core.queues import add, get, pop, is_empty, clear
 
 from pytgcalls.types.input_stream import AudioPiped
@@ -48,6 +48,9 @@ def yt_stream(url: str):
 
 # ---------------- VC PLAYER ----------------
 async def play_next(chat_id: int):
+    # Local import loop break karne ke liye
+    from core.call import call_py 
+    
     if is_empty(chat_id):
         return
 
@@ -69,6 +72,8 @@ async def play_next(chat_id: int):
 # ---------------- PLAY COMMAND ----------------
 @app.on_message(filters.command(["play", "p"]) & filters.group)
 async def play_cmd(_, message: Message):
+    # Yahan bhi call_py chahiye hoga agar play_next call ho raha hai
+    from core.call import call_py
     chat_id = message.chat.id
 
     if len(message.command) < 2:

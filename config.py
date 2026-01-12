@@ -9,8 +9,8 @@ STRING_SESSION = os.getenv("STRING_SESSION", "BQFcbaEAj5NxCIU8FfUh9yTyJRus2cfcOE
 BOT_NAME = "AO Music Bot"
 
 # ========== SETTINGS ==========
-OWNER_ID = int(os.getenv("OWNER_ID", "0"))
-LOG_GROUP_ID = int(os.getenv("LOG_GROUP_ID", "0"))
+OWNER_ID = int(os.getenv("OWNER_ID", "6148346742"))
+LOG_GROUP_ID = int(os.getenv("LOG_GROUP_ID", " -1002134425165"))
 
 DOWNLOAD_DIR = "downloads"
 MAX_QUEUE = 20

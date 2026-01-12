@@ -15,9 +15,9 @@ from youtubesearchpython import VideosSearch
 
 
 # ---------- helper ----------
-async def yt_search(query: str):
+def yt_search(query: str):
     search = VideosSearch(query, limit=1)
-    result = await search.next()
+    result = search.result()
     if not result["result"]:
         return None
     data = result["result"][0]
@@ -39,9 +39,7 @@ async def play_next(chat_id: int):
     await call_py.join_group_call(
         chat_id,
         InputStream(
-            InputAudioStream(
-                file_path
-            )
+            InputAudioStream(file_path)
         ),
         stream_type="local_stream"
     )
@@ -53,17 +51,21 @@ async def play_cmd(_, message: Message):
     chat_id = message.chat.id
 
     if len(message.command) < 2:
-        return await message.reply("❌ Usage: `/play song name or link`")
+        return await message.reply("❌ Usage: /play song name or link")
 
     query = message.text.split(None, 1)[1]
-
     m = await message.reply("🔎 Searching...")
 
-    # YouTube search if not link
+    # YouTube search
     if not query.startswith("http"):
-        data = await yt_search(query)
+        try:
+            data = await asyncio.get_event_loop().run_in_executor(None, yt_search, query)
+        except Exception as e:
+            return await m.edit(f"❌ Search error\n<code>{e}</code>")
+
         if not data:
             return await m.edit("❌ No results found.")
+
         url = data["link"]
         title = data["title"]
     else:
@@ -86,7 +88,7 @@ async def play_cmd(_, message: Message):
 
     add(chat_id, song)
 
-    if len(os.listdir("downloads")) == 1:  # first song
+    if len(os.listdir("downloads")) == 1:
         try:
             await play_next(chat_id)
             await m.edit(f"▶️ Now playing: <b>{title}</b>")

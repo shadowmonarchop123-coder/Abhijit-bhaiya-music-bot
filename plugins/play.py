@@ -14,7 +14,7 @@ from youtubesearchpython import VideosSearch
 import yt_dlp
 
 
-# ----------- YT SEARCH -----------
+# ---------------- FAST SEARCH ----------------
 def yt_search(query: str):
     search = VideosSearch(query, limit=1)
     result = search.result()
@@ -23,27 +23,30 @@ def yt_search(query: str):
     return result["result"][0]["link"]
 
 
-# ----------- YT DIRECT STREAM (WITH COOKIES) -----------
-def yt_stream(query: str):
+# ---------------- FAST DIRECT STREAM ----------------
+def yt_stream(url: str):
     ydl_opts = {
-        "format": "bestaudio/best",
+        "format": "bestaudio",
         "quiet": True,
         "nocheckcertificate": True,
         "geo_bypass": True,
-        "cookiefile": "cookies.txt",   # ✅ cookies enabled
+        "cookiefile": "cookies.txt",
+        "extractor_args": {"youtube": {"player_client": ["android"]}},
+        "skip_download": True,
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(query, download=False)
+        info = ydl.extract_info(url, download=False)
         if "entries" in info:
             info = info["entries"][0]
+
         return {
-            "title": info.get("title"),
-            "url": info.get("url")
+            "title": info.get("title", "Unknown"),
+            "url": info["url"]
         }
 
 
-# ----------- PLAYER CORE -----------
+# ---------------- VC PLAYER ----------------
 async def play_next(chat_id: int):
     if is_empty(chat_id):
         return
@@ -63,7 +66,7 @@ async def play_next(chat_id: int):
         )
 
 
-# ----------- PLAY COMMAND -----------
+# ---------------- PLAY COMMAND ----------------
 @app.on_message(filters.command(["play", "p"]) & filters.group)
 async def play_cmd(_, message: Message):
     chat_id = message.chat.id
@@ -72,17 +75,19 @@ async def play_cmd(_, message: Message):
         return await message.reply("❌ Usage: /play song name")
 
     query = message.text.split(None, 1)[1]
-    m = await message.reply("🔎 Searching...")
+    m = await message.reply("⚡ Processing...")
 
     try:
+        loop = asyncio.get_event_loop()
+
         if not query.startswith("http"):
-            link = await asyncio.get_event_loop().run_in_executor(None, yt_search, query)
+            link = await loop.run_in_executor(None, yt_search, query)
             if not link:
                 return await m.edit("❌ No results found.")
         else:
             link = query
 
-        data = await asyncio.get_event_loop().run_in_executor(None, yt_stream, link)
+        data = await loop.run_in_executor(None, yt_stream, link)
 
     except Exception as e:
         return await m.edit(f"❌ Stream error\n<code>{e}</code>")
@@ -92,15 +97,15 @@ async def play_cmd(_, message: Message):
         "url": data["url"]
     }
 
-    was_empty = is_empty(chat_id)
+    first_song = is_empty(chat_id)
     add(chat_id, song)
 
-    if was_empty:
+    if first_song:
         try:
             await play_next(chat_id)
-            await m.edit(f"▶️ Now playing: <b>{data['title']}</b>")
+            await m.edit(f"▶️ <b>Now Playing:</b> {data['title']}")
         except (GroupCallNotFound, NoActiveGroupCall):
             clear(chat_id)
-            await m.edit("❌ Pehle voice chat start karo aur assistant add karo.")
+            await m.edit("❌ Voice chat start karo aur assistant add karo.")
     else:
-        await m.edit(f"➕ Added to queue: <b>{data['title']}</b>")
+        await m.edit(f"➕ <b>Queued:</b> {data['title']}")

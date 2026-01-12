@@ -3,7 +3,6 @@ from pyrogram import filters
 from pyrogram.types import Message
 
 from core.client import app
-# core.call yahan se hata diya gaya hai loop break karne ke liye
 from core.queues import add, get, pop, is_empty, clear
 
 from pytgcalls.types.input_stream import AudioPiped
@@ -13,7 +12,6 @@ from pytgcalls.exceptions import GroupCallNotFound, NoActiveGroupCall
 from youtubesearchpython import VideosSearch
 import yt_dlp
 
-
 # ---------------- FAST SEARCH ----------------
 def yt_search(query: str):
     search = VideosSearch(query, limit=1)
@@ -22,10 +20,10 @@ def yt_search(query: str):
         return None
     return result["result"][0]["link"]
 
-
-# ---------------- FAST DIRECT STREAM ----------------
+# ---------------- FIXED DIRECT STREAM ----------------
 def yt_stream(url: str):
     ydl_opts = {
+        # Audio formats prioritize karna
         "format": "bestaudio/best",
         "quiet": True,
         "no_warnings": True,
@@ -34,8 +32,8 @@ def yt_stream(url: str):
         "cookiefile": "cookies.txt",
         "extractor_args": {
             "youtube": {
-                "player_client": ["web", "mweb"],
-                "skip": ["dash", "hls"]
+                # 'ios' aur 'android' clients YouTube restrictions bypass karne ke liye
+                "player_client": ["ios", "android", "web"],
             }
         },
         "skip_download": True,
@@ -47,6 +45,7 @@ def yt_stream(url: str):
             if "entries" in info:
                 info = info["entries"][0]
 
+            # Best quality audio link nikalna
             return {
                 "title": info.get("title", "Unknown"),
                 "url": info["url"]
@@ -54,10 +53,8 @@ def yt_stream(url: str):
         except Exception as e:
             raise e
 
-
 # ---------------- VC PLAYER ----------------
 async def play_next(chat_id: int):
-    # LOCAL IMPORT: Isse circular import error solve hota hai
     from core.call import call_py 
     
     if is_empty(chat_id):
@@ -77,13 +74,10 @@ async def play_next(chat_id: int):
             AudioPiped(song["url"])
         )
 
-
 # ---------------- PLAY COMMAND ----------------
 @app.on_message(filters.command(["play", "p"]) & filters.group)
 async def play_cmd(_, message: Message):
-    # LOCAL IMPORT
     from core.call import call_py
-    
     chat_id = message.chat.id
 
     if len(message.command) < 2:
@@ -105,7 +99,9 @@ async def play_cmd(_, message: Message):
         data = await loop.run_in_executor(None, yt_stream, link)
 
     except Exception as e:
-        return await m.edit(f"❌ Stream error\n<code>{e}</code>")
+        # Error detail print karega agar ab bhi issue aaye
+        print(f"Stream Error: {e}")
+        return await m.edit(f"❌ Stream error. Try again or check cookies.")
 
     song = {
         "title": data["title"],

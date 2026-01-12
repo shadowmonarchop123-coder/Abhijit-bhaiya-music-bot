@@ -8,7 +8,8 @@ from core.call import call_py
 from core.queues import add, get, pop, is_empty
 from core.downloader import download_audio
 
-from pytgcalls.types.input_stream import InputStream, InputAudioStream
+from pytgcalls.types.input_stream import AudioPiped
+from pytgcalls import StreamType
 from pytgcalls.exceptions import GroupCallNotFound, NoActiveGroupCall
 
 from youtubesearchpython import VideosSearch
@@ -23,9 +24,7 @@ def yt_search(query: str):
     data = result["result"][0]
     return {
         "title": data["title"],
-        "duration": data["duration"],
-        "link": data["link"],
-        "thumb": data["thumbnails"][0]["url"]
+        "link": data["link"]
     }
 
 
@@ -38,10 +37,8 @@ async def play_next(chat_id: int):
 
     await call_py.join_group_call(
         chat_id,
-        InputStream(
-            InputAudioStream(file_path)
-        ),
-        stream_type="local_stream"
+        AudioPiped(file_path),
+        stream_type=StreamType().pulse_stream
     )
 
 
@@ -51,41 +48,31 @@ async def play_cmd(_, message: Message):
     chat_id = message.chat.id
 
     if len(message.command) < 2:
-        return await message.reply("❌ Usage: /play song name or link")
+        return await message.reply("❌ Usage: /play song name")
 
     query = message.text.split(None, 1)[1]
     m = await message.reply("🔎 Searching...")
 
-    # YouTube search
     if not query.startswith("http"):
-        try:
-            data = await asyncio.get_event_loop().run_in_executor(None, yt_search, query)
-        except Exception as e:
-            return await m.edit(f"❌ Search error\n<code>{e}</code>")
-
+        data = await asyncio.get_event_loop().run_in_executor(None, yt_search, query)
         if not data:
             return await m.edit("❌ No results found.")
-
         url = data["link"]
         title = data["title"]
     else:
         url = query
         title = "Audio"
 
-    await m.edit("📥 Downloading audio...")
+    await m.edit("📥 Downloading...")
 
     try:
-        file_path, info = await asyncio.get_event_loop().run_in_executor(
+        file_path, _ = await asyncio.get_event_loop().run_in_executor(
             None, download_audio, url
         )
     except Exception as e:
-        return await m.edit(f"❌ Download failed\n<code>{e}</code>")
+        return await m.edit(f"❌ Download error\n<code>{e}</code>")
 
-    song = {
-        "title": title,
-        "file": file_path
-    }
-
+    song = {"title": title, "file": file_path}
     add(chat_id, song)
 
     if len(os.listdir("downloads")) == 1:
@@ -93,6 +80,6 @@ async def play_cmd(_, message: Message):
             await play_next(chat_id)
             await m.edit(f"▶️ Now playing: <b>{title}</b>")
         except (GroupCallNotFound, NoActiveGroupCall):
-            await m.edit("❌ Pehle group voice chat start karo.")
+            await m.edit("❌ Pehle voice chat start karo.")
     else:
         await m.edit(f"➕ Added to queue: <b>{title}</b>")

@@ -4,14 +4,16 @@ import uuid
 
 def download_audio(url):
     os.makedirs("downloads", exist_ok=True)
-    filename = f"downloads/{uuid.uuid4()}.mp3"
+
+    uid = str(uuid.uuid4())
+    outtmpl = f"downloads/{uid}.%(ext)s"
 
     ydl_opts = {
         "format": "bestaudio/best",
-        "outtmpl": filename,
+        "outtmpl": outtmpl,
         "noplaylist": True,
         "quiet": True,
-        "cookiefile": "cookies.txt",   # ✅ IMPORTANT
+        "cookiefile": "cookies.txt",
         "postprocessors": [
             {
                 "key": "FFmpegExtractAudio",
@@ -23,5 +25,6 @@ def download_audio(url):
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
+        final_file = f"downloads/{uid}.mp3"
 
-    return filename, info
+    return final_file, info

@@ -3,7 +3,7 @@ from pyrogram import filters
 from pyrogram.types import Message
 
 from core.client import app
-# Yahan se call_py ka import hata diya hai loop break karne ke liye
+# core.call yahan se hata diya gaya hai loop break karne ke liye
 from core.queues import add, get, pop, is_empty, clear
 
 from pytgcalls.types.input_stream import AudioPiped
@@ -26,29 +26,38 @@ def yt_search(query: str):
 # ---------------- FAST DIRECT STREAM ----------------
 def yt_stream(url: str):
     ydl_opts = {
-        "format": "bestaudio",
+        "format": "bestaudio/best",
         "quiet": True,
+        "no_warnings": True,
         "nocheckcertificate": True,
         "geo_bypass": True,
         "cookiefile": "cookies.txt",
-        "extractor_args": {"youtube": {"player_client": ["android"]}},
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["web", "mweb"],
+                "skip": ["dash", "hls"]
+            }
+        },
         "skip_download": True,
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-        if "entries" in info:
-            info = info["entries"][0]
+        try:
+            info = ydl.extract_info(url, download=False)
+            if "entries" in info:
+                info = info["entries"][0]
 
-        return {
-            "title": info.get("title", "Unknown"),
-            "url": info["url"]
-        }
+            return {
+                "title": info.get("title", "Unknown"),
+                "url": info["url"]
+            }
+        except Exception as e:
+            raise e
 
 
 # ---------------- VC PLAYER ----------------
 async def play_next(chat_id: int):
-    # Local import loop break karne ke liye
+    # LOCAL IMPORT: Isse circular import error solve hota hai
     from core.call import call_py 
     
     if is_empty(chat_id):
@@ -72,8 +81,9 @@ async def play_next(chat_id: int):
 # ---------------- PLAY COMMAND ----------------
 @app.on_message(filters.command(["play", "p"]) & filters.group)
 async def play_cmd(_, message: Message):
-    # Yahan bhi call_py chahiye hoga agar play_next call ho raha hai
+    # LOCAL IMPORT
     from core.call import call_py
+    
     chat_id = message.chat.id
 
     if len(message.command) < 2:

@@ -1,0 +1,14 @@
+aiofiles
+aiohttp
+asyncio
+dnspython==2.2.1
+ffmpeg-python
+motor
+pillow
+psutil
+py-tgcalls==0.9.7
+pyrofork
+python-dotenv
+tgcrypto
+yt-dlp
+youtube-search-python

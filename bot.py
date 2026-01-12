@@ -1,7 +1,13 @@
 import asyncio
+import glob
+
 from core.client import app, user
 from core.call import call_py
 from pyrogram import idle
+
+# 🔥 AUTO LOAD ALL PLUGINS
+for file in glob.glob("plugins/*.py"):
+    __import__(file.replace("/", ".").replace(".py", ""))
 
 async def main():
     await app.start()

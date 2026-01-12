@@ -4,13 +4,16 @@ from pytgcalls.types.stream import StreamAudioEnded
 
 from core.client import user
 from core.queues import pop, is_empty
-from plugins.play import play_next
+# Yahan se play_next ka import hata diya hai
 
 call_py = PyTgCalls(user)
 
 
 @call_py.on_stream_end()
 async def on_stream_end(_: PyTgCalls, update: Update):
+    # Local import loop break karne ke liye
+    from plugins.play import play_next
+    
     chat_id = update.chat_id
 
     pop(chat_id)

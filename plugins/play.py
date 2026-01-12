@@ -4,7 +4,7 @@ from pyrogram.types import Message
 
 from core.client import app
 from core.call import call_py
-from core.queues import add, get, pop, is_empty
+from core.queues import add, get, pop, is_empty, clear
 
 from pytgcalls.types.input_stream import AudioPiped
 from pytgcalls import StreamType
@@ -43,18 +43,24 @@ def yt_stream(query: str):
         }
 
 
-# ----------- PLAYER -----------
+# ----------- PLAYER CORE -----------
 async def play_next(chat_id: int):
     if is_empty(chat_id):
         return
 
     song = get(chat_id)
 
-    await call_py.join_group_call(
-        chat_id,
-        AudioPiped(song["url"]),
-        stream_type=StreamType().pulse_stream
-    )
+    try:
+        await call_py.join_group_call(
+            chat_id,
+            AudioPiped(song["url"]),
+            stream_type=StreamType().pulse_stream
+        )
+    except Exception:
+        await call_py.change_stream(
+            chat_id,
+            AudioPiped(song["url"])
+        )
 
 
 # ----------- PLAY COMMAND -----------
@@ -86,13 +92,15 @@ async def play_cmd(_, message: Message):
         "url": data["url"]
     }
 
+    was_empty = is_empty(chat_id)
     add(chat_id, song)
 
-    if len(get(chat_id)) == 1:
+    if was_empty:
         try:
             await play_next(chat_id)
             await m.edit(f"▶️ Now playing: <b>{data['title']}</b>")
         except (GroupCallNotFound, NoActiveGroupCall):
-            await m.edit("❌ Pehle voice chat start karo.")
+            clear(chat_id)
+            await m.edit("❌ Pehle voice chat start karo aur assistant add karo.")
     else:
         await m.edit(f"➕ Added to queue: <b>{data['title']}</b>")

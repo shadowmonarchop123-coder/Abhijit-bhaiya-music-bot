@@ -14,13 +14,23 @@ from youtubesearchpython import VideosSearch
 import yt_dlp
 
 
-# ----------- YT STREAM URL -----------
+# ----------- YT SEARCH -----------
+def yt_search(query: str):
+    search = VideosSearch(query, limit=1)
+    result = search.result()
+    if not result["result"]:
+        return None
+    return result["result"][0]["link"]
+
+
+# ----------- YT DIRECT STREAM (WITH COOKIES) -----------
 def yt_stream(query: str):
     ydl_opts = {
         "format": "bestaudio/best",
         "quiet": True,
         "nocheckcertificate": True,
         "geo_bypass": True,
+        "cookiefile": "cookies.txt",   # ✅ cookies enabled
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -29,17 +39,8 @@ def yt_stream(query: str):
             info = info["entries"][0]
         return {
             "title": info.get("title"),
-            "url": info["url"]
+            "url": info.get("url")
         }
-
-
-def yt_search(query: str):
-    search = VideosSearch(query, limit=1)
-    result = search.result()
-    if not result["result"]:
-        return None
-    data = result["result"][0]
-    return data["link"]
 
 
 # ----------- PLAYER -----------
@@ -56,7 +57,7 @@ async def play_next(chat_id: int):
     )
 
 
-# ----------- COMMAND -----------
+# ----------- PLAY COMMAND -----------
 @app.on_message(filters.command(["play", "p"]) & filters.group)
 async def play_cmd(_, message: Message):
     chat_id = message.chat.id

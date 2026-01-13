@@ -13,18 +13,23 @@ from pytgcalls.types.input_stream import AudioPiped
 from pytgcalls import StreamType
 from pytgcalls.exceptions import GroupCallNotFound, NoActiveGroupCall
 
-# -------- FAST SEARCH --------
-async def yt_search(q):
-    search = VideosSearch(q, limit=1)
-    # yahan await ki zaroorat nahi agar library async nahi hai, 
-    # par executor ke andar dalna behtar hai
-    r = search.result()
-    if not r["result"]:
+# -------- FAST SEARCH (Fixed: Removed async for executor) --------
+def yt_search(q):
+    # 'async' hata diya hai taaki string sahi se return ho
+    try:
+        search = VideosSearch(q, limit=1)
+        r = search.result()
+        if r and "result" in r and len(r["result"]) > 0:
+            return r["result"][0]["link"]
         return None
-    return r["result"][0]["link"]
+    except Exception:
+        return None
 
 # -------- SUPER FAST EXTRACTOR --------
 def yt_stream(url):
+    if not url:
+        raise Exception("Search result empty")
+        
     cookie_path = "cookies.txt"
     
     ydl_opts = {
@@ -35,9 +40,7 @@ def yt_stream(url):
         "nocheckcertificate": True,
         "skip_download": True,
         "proxy": None,
-        # 🔥 Fast processing options
-        "extract_flat": "in_playlist", # Playlist ko skip karega
-        "force_generic_extractor": False,
+        "extract_flat": "in_playlist",
         "cachedir": False,
         "youtube_include_dash_manifest": False, 
         "youtube_include_hls_manifest": False,
@@ -49,7 +52,6 @@ def yt_stream(url):
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
-            # process=True aur download=False se direct link jaldi milta hai
             info = ydl.extract_info(url, download=False)
             if "entries" in info:
                 info = info["entries"][0]
@@ -86,12 +88,12 @@ async def play_cmd(_, message: Message):
         return await message.reply("❌ Usage: /play song name")
 
     query = message.text.split(None, 1)[1]
-    msg = await message.reply("⚡") # Small text = fast UI feel
+    msg = await message.reply("⚡") 
 
     try:
         loop = asyncio.get_event_loop()
 
-        # 1. Faster Search
+        # 1. Faster Search Fix: String return ensure kiya gaya hai
         if not query.startswith("http"):
             link = await loop.run_in_executor(None, yt_search, query)
             if not link:
@@ -112,7 +114,6 @@ async def play_cmd(_, message: Message):
     if first:
         try:
             await play_next(chat_id)
-            # Delete processing message for clean look
             await msg.delete()
             await message.reply(f"▶️ **Now Playing:** {data['title']}")
         except Exception as e:

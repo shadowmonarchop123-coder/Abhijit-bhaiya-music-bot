@@ -10,21 +10,17 @@ BOT_NAME = "AO Music Bot"
 
 # ========== SETTINGS ==========
 OWNER_ID = int(os.getenv("OWNER_ID", "6148346742"))
-LOG_GROUP_ID = int(os.getenv("LOG_GROUP_ID", " -1002134425165"))
+# Yahan space hata dein "-100..." se pehle
+LOG_GROUP_ID = int(os.getenv("LOG_GROUP_ID", "-1002134425165"))
 
 DOWNLOAD_DIR = "downloads"
 MAX_QUEUE = 20
 AUTO_LEAVE = True
 
-# ========== STREAM ==========
-FFMPEG_COMMAND = [
-    "ffmpeg",
-    "-reconnect", "1",
-    "-reconnect_streamed", "1",
-    "-reconnect_delay_max", "5",
-    "-i", "{input}",
-    "-f", "s16le",
-    "-ac", "2",
-    "-ar", "48000",
-    "pipe:1"
-]
+# ========== STREAM (SUPER FAST CONFIG) ==========
+# List ki jagah string format zyada stable hota hai kuch PyTgCalls versions mein
+FFMPEG_COMMAND = (
+    "-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 "
+    "-reconnect_delay_max 5 -i {input} "
+    "-f s16le -ac 2 -ar 48000 -acodec pcm_s16le pipe:1"
+)

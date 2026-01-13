@@ -11,12 +11,11 @@ from core.queues import add, get, is_empty, clear
 
 from pytgcalls.types.input_stream import AudioPiped
 from pytgcalls import StreamType
-from pytgcalls.exceptions import GroupCallNotFound, NoActiveGroupCall
 
-# -------- FAST SEARCH (Fixed: Removed async for executor) --------
+# -------- ULTRA FAST SEARCH --------
 def yt_search(q):
-    # 'async' hata diya hai taaki string sahi se return ho
     try:
+        # Sirf 1 result aur direct link ke liye
         search = VideosSearch(q, limit=1)
         r = search.result()
         if r and "result" in r and len(r["result"]) > 0:
@@ -25,26 +24,25 @@ def yt_search(q):
     except Exception:
         return None
 
-# -------- SUPER FAST EXTRACTOR --------
+# -------- LIGHTWEIGHT EXTRACTOR --------
 def yt_stream(url):
     if not url:
-        raise Exception("Search result empty")
+        raise Exception("Invalid Link")
         
     cookie_path = "cookies.txt"
-    
     ydl_opts = {
         "quiet": True,
         "no_warnings": True,
         "format": "bestaudio/best",
-        "geo_bypass": True,
-        "nocheckcertificate": True,
         "skip_download": True,
-        "proxy": None,
-        "extract_flat": "in_playlist",
-        "cachedir": False,
-        "youtube_include_dash_manifest": False, 
-        "youtube_include_hls_manifest": False,
         "noprogress": True,
+        "proxy": None, # Fixes proxies error
+        # 🔥 Speed Boost Settings
+        "extract_flat": True,
+        "lazy_playlist": True,
+        "cachedir": False,
+        "youtube_include_dash_manifest": False,
+        "youtube_include_hls_manifest": False,
     }
 
     if os.path.exists(cookie_path):
@@ -52,12 +50,10 @@ def yt_stream(url):
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
-            info = ydl.extract_info(url, download=False)
-            if "entries" in info:
-                info = info["entries"][0]
-            
+            # process=False se extraction instant hoti hai
+            info = ydl.extract_info(url, download=False, process=False)
             return {
-                "title": info.get("title", "Unknown"),
+                "title": info.get("title", "Music"),
                 "url": info.get("url") 
             }
         except Exception as e:
@@ -93,7 +89,7 @@ async def play_cmd(_, message: Message):
     try:
         loop = asyncio.get_event_loop()
 
-        # 1. Faster Search Fix: String return ensure kiya gaya hai
+        # 1. Search (Fixed String Issue)
         if not query.startswith("http"):
             link = await loop.run_in_executor(None, yt_search, query)
             if not link:
@@ -101,13 +97,15 @@ async def play_cmd(_, message: Message):
         else:
             link = query
 
-        # 2. Faster Extraction
+        # 2. Fast Extraction
         data = await loop.run_in_executor(None, yt_stream, link)
 
     except Exception as e:
         return await msg.edit(f"❌ Error: {e}")
 
     song = {"title": data["title"], "url": data["url"]}
+    
+    # Queue management
     first = is_empty(chat_id)
     add(chat_id, song)
 
@@ -115,7 +113,7 @@ async def play_cmd(_, message: Message):
         try:
             await play_next(chat_id)
             await msg.delete()
-            await message.reply(f"▶️ **Now Playing:** {data['title']}")
+            await message.reply(f"▶️ **Started:** {data['title']}")
         except Exception as e:
             clear(chat_id)
             await msg.edit(f"❌ VC Error: {e}")

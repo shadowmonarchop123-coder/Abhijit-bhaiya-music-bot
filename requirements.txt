@@ -10,7 +10,7 @@ pyrogram
 py-tgcalls==0.9.7
 
 yt-dlp
-httpx==0.27.2
+httpx==0.24.1
 youtube-search-python==1.6.6
 
 pillow

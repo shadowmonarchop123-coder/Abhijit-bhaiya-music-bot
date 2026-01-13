@@ -28,14 +28,19 @@ def yt_stream(url):
     ydl_opts = {
         "quiet": True,
         "no_warnings": True,
-        "format": "bestaudio",
+        "format": "bestaudio/best",
         "geo_bypass": True,
         "nocheckcertificate": True,
-        "skip_download": True
+        "skip_download": True,
+        "proxy": None,  # ✨ Yeh line error fix karegi
+        "source_address": "0.0.0.0", # Connection issues ke liye
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
+        try:
+            info = ydl.extract_info(url, download=False)
+        except Exception as e:
+            raise Exception(f"YT-DLP Error: {str(e)}")
 
         if "entries" in info:
             info = info["entries"][0]
@@ -44,12 +49,17 @@ def yt_stream(url):
 
         audio = None
         for f in formats:
+            # Check for direct audio URL
             if f.get("acodec") != "none" and f.get("url"):
                 audio = f
                 break
-
+        
+        # Agar acodec filter fail ho jaye toh best URL uthao
         if not audio:
-            raise Exception("No playable audio format found")
+            audio = {"url": info.get("url"), "title": info.get("title")}
+
+        if not audio.get("url"):
+            raise Exception("No playable audio URL found")
 
         return {
             "title": info.get("title", "Unknown"),
@@ -65,16 +75,23 @@ async def play_next(chat_id):
     song = get(chat_id)
 
     try:
+        # Join call with the extracted URL
         await call_py.join_group_call(
             chat_id,
             AudioPiped(song["url"]),
             stream_type=StreamType().pulse_stream
         )
-    except:
-        await call_py.change_stream(
-            chat_id,
-            AudioPiped(song["url"])
-        )
+    except (GroupCallNotFound, NoActiveGroupCall):
+        raise # Upar handle hoga
+    except Exception:
+        # Agar pehle se call mein hai toh stream change karo
+        try:
+            await call_py.change_stream(
+                chat_id,
+                AudioPiped(song["url"])
+            )
+        except Exception:
+            pass
 
 
 # -------- COMMAND --------
@@ -101,6 +118,8 @@ async def play_cmd(_, message: Message):
         data = await loop.run_in_executor(None, yt_stream, link)
 
     except Exception as e:
+        # Traceback print karein taaki terminal mein error dikhe
+        print(f"DEBUG ERROR: {e}")
         return await msg.edit(f"❌ Stream error\n<code>{e}</code>")
 
     song = {
@@ -118,5 +137,7 @@ async def play_cmd(_, message: Message):
         except (GroupCallNotFound, NoActiveGroupCall):
             clear(chat_id)
             await msg.edit("❌ VC start karo aur assistant add karo.")
+        except Exception as e:
+            await msg.edit(f"❌ Error starting stream: {e}")
     else:
         await msg.edit(f"➕ <b>Queued:</b> {data['title']}")

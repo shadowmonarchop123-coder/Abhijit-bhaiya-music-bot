@@ -1,4 +1,4 @@
-# --- Core ---
+# -------- Core --------
 aiofiles
 aiohttp
 dnspython==2.2.1
@@ -7,15 +7,15 @@ psutil
 tgcrypto
 python-dotenv
 
-# --- Telegram ---
+# -------- Telegram --------
 pyrofork
 py-tgcalls==0.9.7
 
-# --- YouTube / Audio ---
-yt-dlp
-httpx==0.27.2
+# -------- YouTube / Streaming --------
+--pre yt-dlp
 youtube-search-python==1.6.6
+httpx>=0.28.1
 
-# --- Optional / safe ---
+# -------- Optional / Safe --------
 pillow
 requests

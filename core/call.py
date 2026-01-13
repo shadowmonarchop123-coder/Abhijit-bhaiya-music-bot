@@ -4,7 +4,6 @@ from pytgcalls.types.stream import StreamAudioEnded
 
 from core.client import user
 from core.queues import pop, is_empty
-from plugins.play import play_next
 
 call_py = PyTgCalls(user)
 
@@ -16,6 +15,8 @@ async def on_stream_end(_: PyTgCalls, update: Update):
     pop(chat_id)
 
     if not is_empty(chat_id):
+        # 🔁 yahan lazy import (circular fix)
+        from plugins.play import play_next
         await play_next(chat_id)
     else:
         try:

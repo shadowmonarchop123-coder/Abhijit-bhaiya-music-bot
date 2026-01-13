@@ -14,7 +14,7 @@ from youtubesearchpython import VideosSearch
 import yt_dlp
 
 
-# ---------------- SEARCH ----------------
+# ---------- SEARCH ----------
 def yt_search(query: str):
     search = VideosSearch(query, limit=1)
     result = search.result()
@@ -23,10 +23,9 @@ def yt_search(query: str):
     return result["result"][0]["link"]
 
 
-# ---------------- STREAM (ANTI FORMAT ERROR) ----------------
+# ---------- STREAM (AUTO FORMAT PICKER) ----------
 def yt_stream(url: str):
     ydl_opts = {
-        "format": "bestaudio/best",
         "quiet": True,
         "no_warnings": True,
         "nocheckcertificate": True,
@@ -34,18 +33,11 @@ def yt_stream(url: str):
         "cookiefile": "cookies.txt",
         "skip_download": True,
         "force-ipv4": True,
-
-        # 🔥 THIS IS THE REAL FIX
         "extractor_args": {
             "youtube": {
-                "player_client": ["tv_embedded", "android", "web"],
-                "skip": ["dash", "translated_subs"]
+                "player_client": ["android", "tv_embedded", "web"]
             }
-        },
-
-        # 🔥 allow HLS/m3u8 streams
-        "hls_prefer_native": True,
-        "merge_output_format": "mp4"
+        }
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -53,13 +45,34 @@ def yt_stream(url: str):
         if "entries" in info:
             info = info["entries"][0]
 
+        formats = info.get("formats", [])
+
+        audio_url = None
+
+        # 🔥 priority 1: m3u8 / hls audio
+        for f in formats:
+            if f.get("acodec") != "none" and "m3u8" in (f.get("protocol") or ""):
+                audio_url = f["url"]
+                break
+
+        # 🔥 priority 2: any audio-only
+        if not audio_url:
+            for f in formats:
+                if f.get("acodec") != "none" and f.get("vcodec") == "none":
+                    audio_url = f["url"]
+                    break
+
+        # 🔥 priority 3: fallback
+        if not audio_url:
+            audio_url = info.get("url")
+
         return {
             "title": info.get("title", "Unknown"),
-            "url": info["url"]
+            "url": audio_url
         }
 
 
-# ---------------- VC PLAYER ----------------
+# ---------- VC PLAYER ----------
 async def play_next(chat_id: int):
     if is_empty(chat_id):
         return
@@ -76,7 +89,7 @@ async def play_next(chat_id: int):
         await call_py.change_stream(chat_id, AudioPiped(song["url"]))
 
 
-# ---------------- PLAY COMMAND ----------------
+# ---------- PLAY COMMAND ----------
 @app.on_message(filters.command(["play", "p"]) & filters.group)
 async def play_cmd(_, message: Message):
     chat_id = message.chat.id
@@ -85,7 +98,7 @@ async def play_cmd(_, message: Message):
         return await message.reply("❌ /play song name")
 
     query = message.text.split(None, 1)[1]
-    m = await message.reply("⚡ Fetching stream...")
+    m = await message.reply("⚡ Getting audio stream...")
 
     try:
         loop = asyncio.get_event_loop()

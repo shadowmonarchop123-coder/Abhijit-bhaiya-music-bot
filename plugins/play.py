@@ -1,6 +1,9 @@
 import asyncio
+import os
+import yt_dlp
 from pyrogram import filters
 from pyrogram.types import Message
+from youtubesearchpython import VideosSearch
 
 from core.client import app
 from core.call import call_py
@@ -10,23 +13,18 @@ from pytgcalls.types.input_stream import AudioPiped
 from pytgcalls import StreamType
 from pytgcalls.exceptions import GroupCallNotFound, NoActiveGroupCall
 
-from youtubesearchpython import VideosSearch
-import yt_dlp
-import os
-
-
 # -------- FAST SEARCH --------
-def yt_search(q):
+async def yt_search(q):
     search = VideosSearch(q, limit=1)
+    # yahan await ki zaroorat nahi agar library async nahi hai, 
+    # par executor ke andar dalna behtar hai
     r = search.result()
     if not r["result"]:
         return None
     return r["result"][0]["link"]
 
-
-# -------- FIXED STRONG STREAM EXTRACTOR --------
+# -------- SUPER FAST EXTRACTOR --------
 def yt_stream(url):
-    # Check if cookies file exists to bypass "Sign in to confirm you're not a bot"
     cookie_path = "cookies.txt"
     
     ydl_opts = {
@@ -36,82 +34,64 @@ def yt_stream(url):
         "geo_bypass": True,
         "nocheckcertificate": True,
         "skip_download": True,
-        "proxy": None,  # ✨ Fixes the 'proxies' keyword error
-        "source_address": "0.0.0.0",
+        "proxy": None,
+        # 🔥 Fast processing options
+        "extract_flat": "in_playlist", # Playlist ko skip karega
+        "force_generic_extractor": False,
+        "cachedir": False,
+        "youtube_include_dash_manifest": False, 
+        "youtube_include_hls_manifest": False,
+        "noprogress": True,
     }
 
-    # Agar cookies.txt file hai toh use karein
     if os.path.exists(cookie_path):
         ydl_opts["cookiefile"] = cookie_path
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
+            # process=True aur download=False se direct link jaldi milta hai
             info = ydl.extract_info(url, download=False)
+            if "entries" in info:
+                info = info["entries"][0]
+            
+            return {
+                "title": info.get("title", "Unknown"),
+                "url": info.get("url") 
+            }
         except Exception as e:
             raise Exception(f"YT-DLP Error: {str(e)}")
-
-        if "entries" in info:
-            info = info["entries"][0]
-
-        formats = info.get("formats", [])
-
-        audio = None
-        for f in formats:
-            if f.get("acodec") != "none" and f.get("url"):
-                audio = f
-                break
-        
-        if not audio:
-            audio = {"url": info.get("url"), "title": info.get("title")}
-
-        if not audio.get("url"):
-            raise Exception("No playable audio URL found")
-
-        return {
-            "title": info.get("title", "Unknown"),
-            "url": audio["url"]
-        }
-
 
 # -------- VC PLAYER --------
 async def play_next(chat_id):
     if is_empty(chat_id):
         return
-
     song = get(chat_id)
-
     try:
         await call_py.join_group_call(
             chat_id,
             AudioPiped(song["url"]),
             stream_type=StreamType().pulse_stream
         )
-    except (GroupCallNotFound, NoActiveGroupCall):
-        raise 
     except Exception:
         try:
-            await call_py.change_stream(
-                chat_id,
-                AudioPiped(song["url"])
-            )
+            await call_py.change_stream(chat_id, AudioPiped(song["url"]))
         except Exception:
             pass
-
 
 # -------- COMMAND --------
 @app.on_message(filters.command(["play", "p"]) & filters.group)
 async def play_cmd(_, message: Message):
     chat_id = message.chat.id
-
     if len(message.command) < 2:
         return await message.reply("❌ Usage: /play song name")
 
     query = message.text.split(None, 1)[1]
-    msg = await message.reply("⚡ Processing...")
+    msg = await message.reply("⚡") # Small text = fast UI feel
 
     try:
         loop = asyncio.get_event_loop()
 
+        # 1. Faster Search
         if not query.startswith("http"):
             link = await loop.run_in_executor(None, yt_search, query)
             if not link:
@@ -119,28 +99,24 @@ async def play_cmd(_, message: Message):
         else:
             link = query
 
+        # 2. Faster Extraction
         data = await loop.run_in_executor(None, yt_stream, link)
 
     except Exception as e:
-        print(f"DEBUG ERROR: {e}")
-        return await msg.edit(f"❌ Stream error\n<code>{e}</code>")
+        return await msg.edit(f"❌ Error: {e}")
 
-    song = {
-        "title": data["title"],
-        "url": data["url"]
-    }
-
+    song = {"title": data["title"], "url": data["url"]}
     first = is_empty(chat_id)
     add(chat_id, song)
 
     if first:
         try:
             await play_next(chat_id)
-            await msg.edit(f"▶️ <b>Now Playing:</b> {data['title']}")
-        except (GroupCallNotFound, NoActiveGroupCall):
-            clear(chat_id)
-            await msg.edit("❌ VC start karo aur assistant add karo.")
+            # Delete processing message for clean look
+            await msg.delete()
+            await message.reply(f"▶️ **Now Playing:** {data['title']}")
         except Exception as e:
-            await msg.edit(f"❌ Error starting stream: {e}")
+            clear(chat_id)
+            await msg.edit(f"❌ VC Error: {e}")
     else:
-        await msg.edit(f"➕ <b>Queued:</b> {data['title']}")
+        await msg.edit(f"➕ **Queued:** {data['title']}")

@@ -1,6 +1,7 @@
 import asyncio
 import os
 import yt_dlp
+import traceback # Error detail ke liye
 from pyrogram import filters
 from pyrogram.types import Message
 from youtubesearchpython import VideosSearch
@@ -9,13 +10,12 @@ from core.client import app
 from core.call import call_py
 from core.queues import add, get, is_empty, clear
 
-from pytgcalls.types.input_stream import AudioPiped
-from pytgcalls import StreamType
+# Streamer se functions import karein taaki duplicate logic na ho
+from core.streamer import start_stream 
 
 # -------- ULTRA FAST SEARCH --------
 def yt_search(q):
     try:
-        # Sirf 1 result aur direct link ke liye
         search = VideosSearch(q, limit=1)
         r = search.result()
         if r and "result" in r and len(r["result"]) > 0:
@@ -36,9 +36,7 @@ def yt_stream(url):
         "format": "bestaudio/best",
         "skip_download": True,
         "noprogress": True,
-        "proxy": None, # Fixes proxies error
-        # 🔥 Speed Boost Settings
-        "extract_flat": True,
+        "extract_flat": True, # Fast extraction
         "lazy_playlist": True,
         "cachedir": False,
         "youtube_include_dash_manifest": False,
@@ -59,23 +57,6 @@ def yt_stream(url):
         except Exception as e:
             raise Exception(f"YT-DLP Error: {str(e)}")
 
-# -------- VC PLAYER --------
-async def play_next(chat_id):
-    if is_empty(chat_id):
-        return
-    song = get(chat_id)
-    try:
-        await call_py.join_group_call(
-            chat_id,
-            AudioPiped(song["url"]),
-            stream_type=StreamType().pulse_stream
-        )
-    except Exception:
-        try:
-            await call_py.change_stream(chat_id, AudioPiped(song["url"]))
-        except Exception:
-            pass
-
 # -------- COMMAND --------
 @app.on_message(filters.command(["play", "p"]) & filters.group)
 async def play_cmd(_, message: Message):
@@ -89,7 +70,7 @@ async def play_cmd(_, message: Message):
     try:
         loop = asyncio.get_event_loop()
 
-        # 1. Search (Fixed String Issue)
+        # 1. Search
         if not query.startswith("http"):
             link = await loop.run_in_executor(None, yt_search, query)
             if not link:
@@ -103,19 +84,25 @@ async def play_cmd(_, message: Message):
     except Exception as e:
         return await msg.edit(f"❌ Error: {e}")
 
+    if not data.get("url"):
+        return await msg.edit("❌ Streaming URL nahi mil saki.")
+
     song = {"title": data["title"], "url": data["url"]}
-    
-    # Queue management
     first = is_empty(chat_id)
     add(chat_id, song)
 
     if first:
         try:
-            await play_next(chat_id)
+            # core/streamer.py ka start_stream use karein jisme error catching hai
+            from core.streamer import start_stream
+            await start_stream(chat_id, data["url"])
+            
             await msg.delete()
             await message.reply(f"▶️ **Started:** {data['title']}")
         except Exception as e:
             clear(chat_id)
+            print(f"❌ Play Command Error: {e}")
+            traceback.print_exc()
             await msg.edit(f"❌ VC Error: {e}")
     else:
         await msg.edit(f"➕ **Queued:** {data['title']}")

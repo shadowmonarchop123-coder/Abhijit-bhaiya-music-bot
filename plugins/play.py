@@ -4,7 +4,7 @@ from pyrogram.types import Message
 
 from core.client import app
 from core.call import call_py
-from core.queues import add, get, pop, is_empty, clear
+from core.queues import add, get, is_empty, clear
 
 from pytgcalls.types.input_stream import AudioPiped
 from pytgcalls import StreamType
@@ -23,10 +23,10 @@ def yt_search(query: str):
     return result["result"][0]["link"]
 
 
-# ---------------- DIRECT AUDIO STREAM ----------------
+# ---------------- SAFE DIRECT STREAM ----------------
 def yt_stream(url: str):
     ydl_opts = {
-        "format": "bestaudio/best",
+        "format": "bestaudio/best",   # 🔥 auto best audio
         "quiet": True,
         "no_warnings": True,
         "nocheckcertificate": True,
@@ -35,11 +35,10 @@ def yt_stream(url: str):
         "skip_download": True,
         "force-ipv4": True,
 
-        # 🔥 youtube fix
+        # ✅ stable youtube client
         "extractor_args": {
             "youtube": {
-                "player_client": ["web", "android"],
-                "skip": ["dash", "hls"]
+                "player_client": ["android"]
             }
         },
     }
@@ -106,10 +105,10 @@ async def play_cmd(_, message: Message):
         "url": data["url"]
     }
 
-    first_song = is_empty(chat_id)
+    first = is_empty(chat_id)
     add(chat_id, song)
 
-    if first_song:
+    if first:
         try:
             await play_next(chat_id)
             await m.edit(f"▶️ <b>Now Playing:</b> {data['title']}")

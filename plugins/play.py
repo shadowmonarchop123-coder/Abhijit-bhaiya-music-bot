@@ -12,6 +12,7 @@ from pytgcalls.exceptions import GroupCallNotFound, NoActiveGroupCall
 
 from youtubesearchpython import VideosSearch
 import yt_dlp
+import os
 
 
 # -------- FAST SEARCH --------
@@ -25,6 +26,9 @@ def yt_search(q):
 
 # -------- FIXED STRONG STREAM EXTRACTOR --------
 def yt_stream(url):
+    # Check if cookies file exists to bypass "Sign in to confirm you're not a bot"
+    cookie_path = "cookies.txt"
+    
     ydl_opts = {
         "quiet": True,
         "no_warnings": True,
@@ -32,9 +36,13 @@ def yt_stream(url):
         "geo_bypass": True,
         "nocheckcertificate": True,
         "skip_download": True,
-        "proxy": None,  # ✨ Yeh line error fix karegi
-        "source_address": "0.0.0.0", # Connection issues ke liye
+        "proxy": None,  # ✨ Fixes the 'proxies' keyword error
+        "source_address": "0.0.0.0",
     }
+
+    # Agar cookies.txt file hai toh use karein
+    if os.path.exists(cookie_path):
+        ydl_opts["cookiefile"] = cookie_path
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
@@ -49,12 +57,10 @@ def yt_stream(url):
 
         audio = None
         for f in formats:
-            # Check for direct audio URL
             if f.get("acodec") != "none" and f.get("url"):
                 audio = f
                 break
         
-        # Agar acodec filter fail ho jaye toh best URL uthao
         if not audio:
             audio = {"url": info.get("url"), "title": info.get("title")}
 
@@ -75,16 +81,14 @@ async def play_next(chat_id):
     song = get(chat_id)
 
     try:
-        # Join call with the extracted URL
         await call_py.join_group_call(
             chat_id,
             AudioPiped(song["url"]),
             stream_type=StreamType().pulse_stream
         )
     except (GroupCallNotFound, NoActiveGroupCall):
-        raise # Upar handle hoga
+        raise 
     except Exception:
-        # Agar pehle se call mein hai toh stream change karo
         try:
             await call_py.change_stream(
                 chat_id,
@@ -118,7 +122,6 @@ async def play_cmd(_, message: Message):
         data = await loop.run_in_executor(None, yt_stream, link)
 
     except Exception as e:
-        # Traceback print karein taaki terminal mein error dikhe
         print(f"DEBUG ERROR: {e}")
         return await msg.edit(f"❌ Stream error\n<code>{e}</code>")
 

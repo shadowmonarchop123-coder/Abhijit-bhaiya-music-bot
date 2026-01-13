@@ -14,7 +14,7 @@ from youtubesearchpython import VideosSearch
 import yt_dlp
 
 
-# ---------------- FAST SEARCH ----------------
+# ---------------- SEARCH ----------------
 def yt_search(query: str):
     search = VideosSearch(query, limit=1)
     result = search.result()
@@ -23,10 +23,10 @@ def yt_search(query: str):
     return result["result"][0]["link"]
 
 
-# ---------------- SAFE DIRECT STREAM ----------------
+# ---------------- STREAM (ANTI FORMAT ERROR) ----------------
 def yt_stream(url: str):
     ydl_opts = {
-        "format": "bestaudio/best",   # 🔥 auto best audio
+        "format": "bestaudio/best",
         "quiet": True,
         "no_warnings": True,
         "nocheckcertificate": True,
@@ -35,12 +35,17 @@ def yt_stream(url: str):
         "skip_download": True,
         "force-ipv4": True,
 
-        # ✅ stable youtube client
+        # 🔥 THIS IS THE REAL FIX
         "extractor_args": {
             "youtube": {
-                "player_client": ["android"]
+                "player_client": ["tv_embedded", "android", "web"],
+                "skip": ["dash", "translated_subs"]
             }
         },
+
+        # 🔥 allow HLS/m3u8 streams
+        "hls_prefer_native": True,
+        "merge_output_format": "mp4"
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -68,10 +73,7 @@ async def play_next(chat_id: int):
             stream_type=StreamType().pulse_stream
         )
     except Exception:
-        await call_py.change_stream(
-            chat_id,
-            AudioPiped(song["url"])
-        )
+        await call_py.change_stream(chat_id, AudioPiped(song["url"]))
 
 
 # ---------------- PLAY COMMAND ----------------
@@ -80,10 +82,10 @@ async def play_cmd(_, message: Message):
     chat_id = message.chat.id
 
     if len(message.command) < 2:
-        return await message.reply("❌ Usage: /play song name")
+        return await message.reply("❌ /play song name")
 
     query = message.text.split(None, 1)[1]
-    m = await message.reply("⚡ Processing...")
+    m = await message.reply("⚡ Fetching stream...")
 
     try:
         loop = asyncio.get_event_loop()
@@ -100,11 +102,7 @@ async def play_cmd(_, message: Message):
     except Exception as e:
         return await m.edit(f"❌ Stream error\n<code>{e}</code>")
 
-    song = {
-        "title": data["title"],
-        "url": data["url"]
-    }
-
+    song = {"title": data["title"], "url": data["url"]}
     first = is_empty(chat_id)
     add(chat_id, song)
 

@@ -23,16 +23,25 @@ def yt_search(query: str):
     return result["result"][0]["link"]
 
 
-# ---------------- FAST DIRECT STREAM ----------------
+# ---------------- DIRECT AUDIO STREAM ----------------
 def yt_stream(url: str):
     ydl_opts = {
-        "format": "bestaudio",
+        "format": "bestaudio/best",
         "quiet": True,
+        "no_warnings": True,
         "nocheckcertificate": True,
         "geo_bypass": True,
         "cookiefile": "cookies.txt",
-        "extractor_args": {"youtube": {"player_client": ["android"]}},
         "skip_download": True,
+        "force-ipv4": True,
+
+        # 🔥 youtube fix
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["web", "android"],
+                "skip": ["dash", "hls"]
+            }
+        },
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:

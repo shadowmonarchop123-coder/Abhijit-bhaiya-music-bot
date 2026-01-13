@@ -23,23 +23,15 @@ def yt_search(q):
     return r["result"][0]["link"]
 
 
-# -------- STRONG STREAM EXTRACTOR --------
+# -------- FIXED STRONG STREAM EXTRACTOR --------
 def yt_stream(url):
     ydl_opts = {
         "quiet": True,
         "no_warnings": True,
-        "cookiefile": "cookies.txt",
-        "format": "bestaudio/best",
-        "nocheckcertificate": True,
+        "format": "bestaudio",
         "geo_bypass": True,
-        "force-ipv4": True,
-        "skip_download": True,
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["android", "web", "tv_embedded"],
-                "player_skip": ["configs", "webpage"]
-            }
-        }
+        "nocheckcertificate": True,
+        "skip_download": True
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -48,9 +40,20 @@ def yt_stream(url):
         if "entries" in info:
             info = info["entries"][0]
 
+        formats = info.get("formats", [])
+
+        audio = None
+        for f in formats:
+            if f.get("acodec") != "none" and f.get("url"):
+                audio = f
+                break
+
+        if not audio:
+            raise Exception("No playable audio format found")
+
         return {
             "title": info.get("title", "Unknown"),
-            "url": info["url"]
+            "url": audio["url"]
         }
 
 

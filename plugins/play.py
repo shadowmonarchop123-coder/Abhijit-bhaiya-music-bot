@@ -11,6 +11,7 @@ from pytgcalls.exceptions import GroupCallNotFound, NoActiveGroupCall
 
 from youtubesearchpython import VideosSearch
 from core.prefetch import _extract as yt_stream
+from core.prefetch import extract_async, prefetch
 
 
 def yt_search(q):

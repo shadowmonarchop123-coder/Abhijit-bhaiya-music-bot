@@ -3,7 +3,7 @@ import yt_dlp
 
 PREFETCH = {}
 
-# Is section mein maine 'format' aur 'player_client' update kiya hai jo error fix karega
+# Yahan 'format' specify karna zaruri hai taaki 'Requested format' wala error na aaye
 ydl_opts = {
     "format": "bestaudio/best",
     "quiet": True,
@@ -14,37 +14,43 @@ ydl_opts = {
     "geo_bypass": True,
     "extractor_args": {
         "youtube": {
-            "player_client": ["android", "web"],
+            "player_client": ["android", "web"], # 'tv_embedded' hata diya hai kyunki wo fail ho raha hai
             "player_skip": ["configs", "webpage"]
         }
     }
 }
 
 def _extract(query: str):
-    if not query.startswith("http"):
+    if not query.startswith(("http://", "https://")):
         query = f"ytsearch1:{query}"
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(query, download=False)
+        try:
+            info = ydl.extract_info(query, download=False)
+            
+            if "entries" in info:
+                info = info["entries"][0]
 
-        if "entries" in info:
-            info = info["entries"][0]
+            # Direct URL nikalne ka logic
+            url = info.get("url")
+            
+            # Agar direct URL nahi milta toh formats list se best audio uthayega
+            if not url and "formats" in info:
+                for f in info['formats']:
+                    if f.get('vcodec') == 'none':
+                        url = f.get('url')
+                        break
+            
+            if not url:
+                raise Exception("Stream URL not found")
 
-        # Best Audio URL nikalne ka logic
-        url = info.get("url")
-        if not url and "formats" in info:
-            for f in info['formats']:
-                if f.get('vcodec') == 'none':
-                    url = f.get('url')
-                    break
-
-        if not url:
-            raise Exception("Stream URL not found")
-
-        return {
-            "title": info.get("title", "Unknown"),
-            "url": url
-        }
+            return {
+                "title": info.get("title", "Unknown"),
+                "url": url
+            }
+        except Exception as e:
+            print(f"Extraction Error: {e}")
+            raise e
 
 async def extract_async(query: str):
     loop = asyncio.get_event_loop()
@@ -55,7 +61,7 @@ async def prefetch(chat_id, query):
     try:
         data = await loop.run_in_executor(None, _extract, query)
         PREFETCH[chat_id] = data
-    except:
+    except Exception:
         PREFETCH.pop(chat_id, None)
 
 def get_prefetch(chat_id):

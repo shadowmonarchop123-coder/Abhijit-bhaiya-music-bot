@@ -3,7 +3,6 @@ import yt_dlp
 
 PREFETCH = {}
 
-# In options mein naye format aur clients add kiye hain jo block nahi hote
 ydl_opts = {
     "format": "bestaudio/best",
     "quiet": True,
@@ -12,6 +11,13 @@ ydl_opts = {
     "skip_download": True,
     "nocheckcertificate": True,
     "geo_bypass": True,
+    # FFmpeg ki settings yahan add ki hain
+    "postprocessors": [{
+        "key": "FFmpegExtractAudio",
+        "preferredcodec": "mp3",
+        "preferredquality": "192",
+    }],
+    "ffmpeg_location": "/usr/bin/ffmpeg", # Linux server ka default path
     "extractor_args": {
         "youtube": {
             "player_client": ["android", "web"],
@@ -21,7 +27,6 @@ ydl_opts = {
 }
 
 def _extract(query: str):
-    # Agar link nahi hai toh search karega
     if not query.startswith(("http://", "https://")):
         query = f"ytsearch1:{query}"
 
@@ -31,26 +36,27 @@ def _extract(query: str):
             if "entries" in info:
                 info = info["entries"][0]
 
-            # Direct link nikalne ki koshish
-            url = info.get("url")
-            
-            # Agar direct link nahi hai, toh available formats se audio link dhundega
-            if not url and "formats" in info:
+            # Sabse stable audio link nikalne ka logic
+            url = None
+            if "formats" in info:
                 for f in info['formats']:
+                    # Sirf audio stream dhoondhna (vcodec='none')
                     if f.get('vcodec') == 'none' and f.get('acodec') != 'none':
                         url = f.get('url')
                         break
             
             if not url:
-                raise Exception("Koyi bhi audio stream format nahi mila.")
+                url = info.get("url")
+
+            if not url:
+                raise Exception("Koyi valid stream nahi mila. FFmpeg ya Cookies check karein.")
 
             return {
                 "title": info.get("title", "Unknown"),
                 "url": url
             }
         except Exception as e:
-            # Error log karega taaki aapko terminal mein dikhe
-            print(f"Extraction Error: {str(e)}")
+            print(f"Extraction Error: {e}")
             raise e
 
 async def extract_async(query: str):

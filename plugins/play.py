@@ -5,7 +5,6 @@ from pyrogram.types import Message
 from core.client import app
 from core.streamer import play_next
 from core.queues import add, is_empty, clear
-
 from core.prefetch import extract_async, prefetch
 
 from pytgcalls.exceptions import GroupCallNotFound, NoActiveGroupCall
@@ -22,7 +21,7 @@ async def play_cmd(_, message: Message):
     msg = await message.reply("⚡ Processing...")
 
     try:
-        # ⚡ TURBO extract (search + stream url in one hit)
+        # ⚡ ultra fast: search + extract in one hit
         data = await extract_async(query)
     except Exception as e:
         return await msg.edit(f"❌ Stream error\n<code>{e}</code>")
@@ -35,7 +34,7 @@ async def play_cmd(_, message: Message):
     first = is_empty(chat_id)
     add(chat_id, song)
 
-    # 🔥 background prefetch (next instant)
+    # 🔥 next song preload (zero delay on skip)
     asyncio.create_task(prefetch(chat_id, query))
 
     if first:

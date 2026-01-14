@@ -32,17 +32,7 @@ async def play_cmd(_, message: Message):
     msg = await message.reply("⚡ Processing...")
 
     try:
-        loop = asyncio.get_event_loop()
-
-        if not query.startswith("http"):
-            link = await loop.run_in_executor(None, yt_search, query)
-            if not link:
-                return await msg.edit("❌ No results found.")
-        else:
-            link = query
-
-        data = await loop.run_in_executor(None, yt_stream, link)
-
+        data = await extract_async(query)
     except Exception as e:
         return await msg.edit(f"❌ Stream error\n<code>{e}</code>")
 
@@ -54,11 +44,8 @@ async def play_cmd(_, message: Message):
     first = is_empty(chat_id)
     add(chat_id, song)
 
-    # 🔥 TURBO PREFETCH
-    try:
-        await prefetch(chat_id, link)
-    except:
-        pass
+    # 🔥 instant next preload
+    asyncio.create_task(prefetch(chat_id, query))
 
     if first:
         try:

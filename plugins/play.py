@@ -1,83 +1,122 @@
 import asyncio
-import os
-import yt_dlp
-import traceback
 from pyrogram import filters
 from pyrogram.types import Message
-from youtubesearchpython import VideosSearch
 
 from core.client import app
 from core.call import call_py
 from core.queues import add, get, is_empty, clear
 
-# --- ULTRA FAST SEARCH ---
-def yt_search(q):
-    try:
-        search = VideosSearch(q, limit=1)
-        r = search.result()
-        if r and "result" in r and len(r["result"]) > 0:
-            return r["result"][0]["link"]
-        return None
-    except Exception:
-        return None
+from pytgcalls.types.input_stream import AudioPiped
+from pytgcalls import StreamType
+from pytgcalls.exceptions import GroupCallNotFound, NoActiveGroupCall
 
-# --- EXTRACTION FIX ---
+from youtubesearchpython import VideosSearch
+import yt_dlp
+
+
+# -------- FAST SEARCH --------
+def yt_search(q):
+    search = VideosSearch(q, limit=1)
+    r = search.result()
+    if not r["result"]:
+        return None
+    return r["result"][0]["link"]
+
+
+# -------- FIXED STRONG STREAM EXTRACTOR --------
 def yt_stream(url):
     ydl_opts = {
         "quiet": True,
-        "format": "bestaudio/best",
-        "skip_download": True,
-        "extract_flat": False, # Isse URL sahi se extract hogi
-        "cookiefile": "cookies.txt" if os.path.exists("cookies.txt") else None
+        "no_warnings": True,
+        "format": "bestaudio",
+        "geo_bypass": True,
+        "nocheckcertificate": True,
+        "skip_download": True
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(url, download=False)
-            return {
-                "title": info.get("title", "Music"),
-                "url": info.get("url") 
-            }
-        except Exception as e:
-            raise Exception(f"YT-DLP Error: {str(e)}")
 
-# --- COMMAND ---
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+        if "entries" in info:
+            info = info["entries"][0]
+
+        formats = info.get("formats", [])
+
+        audio = None
+        for f in formats:
+            if f.get("acodec") != "none" and f.get("url"):
+                audio = f
+                break
+
+        if not audio:
+            raise Exception("No playable audio format found")
+
+        return {
+            "title": info.get("title", "Unknown"),
+            "url": audio["url"]
+        }
+
+
+# -------- VC PLAYER --------
+async def play_next(chat_id):
+    if is_empty(chat_id):
+        return
+
+    song = get(chat_id)
+
+    try:
+        await call_py.join_group_call(
+            chat_id,
+            AudioPiped(song["url"]),
+            stream_type=StreamType().pulse_stream
+        )
+    except:
+        await call_py.change_stream(
+            chat_id,
+            AudioPiped(song["url"])
+        )
+
+
+# -------- COMMAND --------
 @app.on_message(filters.command(["play", "p"]) & filters.group)
 async def play_cmd(_, message: Message):
     chat_id = message.chat.id
+
     if len(message.command) < 2:
         return await message.reply("❌ Usage: /play song name")
 
     query = message.text.split(None, 1)[1]
-    msg = await message.reply("⚡ **Searching...**") 
+    msg = await message.reply("⚡ Processing...")
 
     try:
         loop = asyncio.get_event_loop()
+
         if not query.startswith("http"):
             link = await loop.run_in_executor(None, yt_search, query)
+            if not link:
+                return await msg.edit("❌ No results found.")
         else:
             link = query
 
-        if not link:
-            return await msg.edit("❌ No results found.")
-
         data = await loop.run_in_executor(None, yt_stream, link)
-    except Exception as e:
-        return await msg.edit(f"❌ Error: {e}")
 
-    song = {"title": data["title"], "url": data["url"]}
+    except Exception as e:
+        return await msg.edit(f"❌ Stream error\n<code>{e}</code>")
+
+    song = {
+        "title": data["title"],
+        "url": data["url"]
+    }
+
     first = is_empty(chat_id)
     add(chat_id, song)
 
     if first:
         try:
-            # Lazy import to avoid circular dependency
-            from core.streamer import start_stream
-            await start_stream(chat_id, data["url"])
-            await msg.delete()
-            await message.reply(f"▶️ **Started:** {data['title']}")
-        except Exception as e:
+            await play_next(chat_id)
+            await msg.edit(f"▶️ <b>Now Playing:</b> {data['title']}")
+        except (GroupCallNotFound, NoActiveGroupCall):
             clear(chat_id)
-            traceback.print_exc()
-            await msg.edit(f"❌ VC Error: {e}")
+            await msg.edit("❌ VC start karo aur assistant add karo.")
     else:
-        await msg.edit(f"➕ **Queued:** {data['title']}")
+        await msg.edit(f"➕ <b>Queued:</b> {data['title']}")

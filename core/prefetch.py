@@ -7,7 +7,6 @@ ydl_opts = {
     "quiet": True,
     "no_warnings": True,
     "cookiefile": "cookies.txt",
-    "format": "bestaudio/best",
     "skip_download": True,
     "nocheckcertificate": True,
     "geo_bypass": True,
@@ -20,8 +19,15 @@ ydl_opts = {
 }
 
 
+def _pick_audio(info):
+    formats = info.get("formats", [])
+    for f in formats:
+        if f.get("acodec") != "none" and f.get("url"):
+            return f["url"]
+    return None
+
+
 def _extract(query: str):
-    # 🔥 direct ytsearch + extract (one hit only)
     if not query.startswith("http"):
         query = f"ytsearch1:{query}"
 
@@ -31,19 +37,23 @@ def _extract(query: str):
         if "entries" in info:
             info = info["entries"][0]
 
+        audio_url = _pick_audio(info)
+        if not audio_url:
+            raise Exception("No playable audio format found")
+
         return {
             "title": info.get("title", "Unknown"),
-            "url": info["url"]
+            "url": audio_url
         }
 
 
-# ⚡ TURBO main extractor (used in /play)
+# ⚡ turbo extractor
 async def extract_async(query: str):
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, _extract, query)
 
 
-# 🔥 BACKGROUND preload for next song
+# 🔥 preload next
 async def prefetch(chat_id, query):
     loop = asyncio.get_event_loop()
     try:

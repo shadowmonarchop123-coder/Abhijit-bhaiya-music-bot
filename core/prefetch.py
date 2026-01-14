@@ -28,9 +28,7 @@ def _extract(query: str):
         if "entries" in info:
             info = info["entries"][0]
 
-        # yt-dlp already gives best playable url here
         url = info.get("url")
-
         if not url:
             raise Exception("Stream URL not found")
 

@@ -3,18 +3,20 @@ from pytgcalls import StreamType
 from core.call import call_py
 from core.queues import get, is_empty
 
-async def start_stream(chat_id, stream_url):
+async def start_stream(chat_id, url):
+    stream = InputStream(
+        AudioPiped(url)
+    )
+
     try:
         await call_py.join_group_call(
             chat_id,
-            InputStream(AudioPiped(stream_url)),
-            stream_type=StreamType.pulse_stream
+            stream,
+            stream_type=StreamType().pulse_stream
         )
     except:
-        await call_py.change_stream(
-            chat_id,
-            InputStream(AudioPiped(stream_url))
-        )
+        await call_py.change_stream(chat_id, stream)
+
 
 async def play_next(chat_id):
     if is_empty(chat_id):

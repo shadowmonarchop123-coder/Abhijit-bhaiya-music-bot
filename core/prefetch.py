@@ -10,10 +10,11 @@ ydl_opts = {
     "skip_download": True,
     "nocheckcertificate": True,
     "geo_bypass": True,
+    "format": "bestaudio/best",
     "extractor_args": {
         "youtube": {
-            "player_client": ["android"],
-            "player_skip": ["configs"]
+            "player_client": ["android", "web"],
+            "player_skip": ["configs", "webpage"]
         }
     }
 }
@@ -21,9 +22,17 @@ ydl_opts = {
 
 def _pick_audio(info):
     formats = info.get("formats", [])
+
+    # 1️⃣ first try: real audio only
+    for f in formats:
+        if f.get("acodec") != "none" and f.get("vcodec") == "none" and f.get("url"):
+            return f["url"]
+
+    # 2️⃣ fallback: any format with audio
     for f in formats:
         if f.get("acodec") != "none" and f.get("url"):
             return f["url"]
+
     return None
 
 
@@ -39,7 +48,7 @@ def _extract(query: str):
 
         audio_url = _pick_audio(info)
         if not audio_url:
-            raise Exception("No playable audio format found")
+            raise Exception("No playable audio stream found")
 
         return {
             "title": info.get("title", "Unknown"),
@@ -53,7 +62,7 @@ async def extract_async(query: str):
     return await loop.run_in_executor(None, _extract, query)
 
 
-# 🔥 preload next
+# 🔥 preload next song
 async def prefetch(chat_id, query):
     loop = asyncio.get_event_loop()
     try:

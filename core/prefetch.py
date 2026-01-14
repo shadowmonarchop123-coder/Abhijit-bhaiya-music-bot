@@ -4,27 +4,22 @@ import os
 
 PREFETCH = {}
 
-# Cookies file path check
-cookie_path = "cookies.txt"
-if not os.path.exists(cookie_path):
-    print("⚠️ WARNING: cookies.txt not found! YouTube might block you.")
+# Absolute path use karna behtar hota hai
+COOKIE_FILE = os.path.join(os.getcwd(), "cookies.txt")
 
 ydl_opts = {
     "format": "bestaudio/best",
     "quiet": True,
     "no_warnings": True,
-    "cookiefile": cookie_path if os.path.exists(cookie_path) else None,
+    "cookiefile": COOKIE_FILE if os.path.exists(COOKIE_FILE) else None,
     "skip_download": True,
     "nocheckcertificate": True,
     "geo_bypass": True,
     "extractor_args": {
         "youtube": {
-            "player_client": ["ios", "web"], # iOS client sabse zyada stable hai abhi
+            "player_client": ["android", "ios", "web"],
             "player_skip": ["configs", "webpage"]
         }
-    },
-    "headers": {
-        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
     }
 }
 
@@ -38,20 +33,20 @@ def _extract(query: str):
             if "entries" in info:
                 info = info["entries"][0]
 
-            # Sabse stable audio link extraction
-            url = None
-            if "formats" in info:
-                for f in info['formats']:
-                    # Sirf audio stream dhoondhna
-                    if f.get('vcodec') == 'none' and f.get('acodec') != 'none':
-                        url = f.get('url')
-                        break
+            # 1. Pehle direct url check karo
+            url = info.get("url")
             
-            if not url:
-                url = info.get("url")
+            # 2. Agar direct nahi hai, toh formats list me best audio dhoondo
+            if not url or "manifest_url" in url:
+                if "formats" in info:
+                    # Filter only audio formats
+                    audio_formats = [f for f in info['formats'] if f.get('vcodec') == 'none']
+                    if audio_formats:
+                        # Best quality audio format
+                        url = audio_formats[-1]['url']
 
             if not url:
-                raise Exception("YouTube ne link dene se mana kar diya. Please update cookies.txt")
+                raise Exception("Requested format is not available. Try updating cookies.")
 
             return {
                 "title": info.get("title", "Unknown"),

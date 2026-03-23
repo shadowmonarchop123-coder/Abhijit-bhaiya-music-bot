@@ -3,15 +3,15 @@ import os
 # ========== BOT CONFIG ==========
 API_ID = int(os.getenv("API_ID", "22834593"))
 API_HASH = os.getenv("API_HASH", "f400bc1d1baeb9ae93014ce3ee5ea835")
-BOT_TOKEN = os.getenv("BOT_TOKEN", "6666555316:AAEBEexXKkXy_l9eO414wGXYa4p907EXTPc")
-STRING_SESSION = os.getenv("STRING_SESSION", "BQFcbaEAj5NxCIU8FfUh9yTyJRus2cfcOENDLt3S5cBzU3GRdgEqu0aJsF830bwGDESnbk_9PHKwEDs8YQRvhbmvdxC71xZhJ34915RUl40FZkR3jhneWNkUEw_JAg0j_IMQb0tL3AtQme9Cn5jSFS5ixsJf_AMaGGkG8akwX69OJYO3-sgfxvKPT31aidz2OlS7IPTq842EdoioQTka8mxsLVgr8e7IrbZVMN-TJ5oPrEGrK8qfoLxlOjjO96IOoxDQOkUQ3zVUkArr02jB3CYPeZeB8zQqaS0xg3n-E2rq6VgeSEdlGOXIm29hhM_xk3wASEd69HIk9YU2TLofnzRR7hBxXwAAAAF5c5ovAA")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8628889832:AAGl2wiVQiEwH1YMkFnc4R4Ys-sKUfHpK4k")
+STRING_SESSION = os.getenv("STRING_SESSION", "1AZWarzgBu0-LXXerqIEwFt6o-Viu2gm9nEZ6XOLFDeuidQn9LD7iDtngA6916OD7HUFFrWl9HRqOK_5H0CzjJyYWhN8cKoWlr0atK_8rKMDbcE5zSfYJt75u1tqQeSayFxEvSxiDxGXnT5I-4ynojU5JNz3oKummAl1ugasDBuyYtwgbZdxxwWJlBQYa1AQrFZgL8_QteoOhRL4ncXNaYm4NkX-9-W3XVvO_7A50MbswGOkGh87zAOT00CKOrJVz-aiz196ckNCbRhpzc6oisOEHRdY9xXZPuQuA7w-PVcus4KT-pH3rzapQRfNKneYkv_EariXz4nTR-kbD5a7onkyRcAQTnoY=")
 
-BOT_NAME = "AO Music Bot"
+BOT_NAME = "✨Dᴀʀᴋ Aɴɢᴇʟ Music✨🤍"
 
 # ========== SETTINGS ==========
-OWNER_ID = int(os.getenv("OWNER_ID", "6148346742"))
+OWNER_ID = int(os.getenv("OWNER_ID", "5390485406"))
 # Yahan space hata dein "-100..." se pehle
-LOG_GROUP_ID = int(os.getenv("LOG_GROUP_ID", "-1002134425165"))
+LOG_GROUP_ID = int(os.getenv("LOG_GROUP_ID", "-1003886464823"))
 
 DOWNLOAD_DIR = "downloads"
 MAX_QUEUE = 20
